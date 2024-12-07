@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>奇雞連連 (Gobblet Gobblers)</title>
+    <style>
+      body {
+        font-family: "Microsoft JhengHei", sans-serif;
+        background: #f2f2f2;
+        margin: 0;
+        padding: 0;
+        user-select: none; /* 防止拖曳時文字被選中 */
+        display: flex;
+        flex-direction: row;
+      }
+
+      h1 {
+        text-align: center;
+        margin-top: 20px;
+      }
+
+      .left-panel {
+        flex: 0 0 auto;
+        width: 700px;
+        position: relative;
+      }
+
+      .game-container {
+        width: 600px;
+        margin: 0px auto;
+        background: #ffffff;
+        padding: 20px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        position: relative;
+      }
+
+      .status {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+
+      .board-container {
+        position: relative;
+        width: 320px;
+        height: 320px;
+        margin: 20px auto;
+        background: #f9f9f9;
+      }
+
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-gap: 10px;
+        /* 棋盤320x320 (3格x100+2條10px縫隙) */
+        /* 用 margin 讓棋盤往右下偏移60px */
+        margin: 30px 0 0 30px;
+      }
+
+      .cell {
+        width: 100px;
+        height: 100px;
+        border: 3px solid #333;
+        box-sizing: border-box;
+        background: #eee;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* 棋盤外圍標記 */
+      .column-labels,
+      .row-labels {
+        position: absolute;
+        font-weight: bold;
+        font-size: 16px;
+        z-index: 999; /* 確保標記在最上層 */
+        background: rgba(255, 255, 255, 0.8); /* 淡色背景讓標記更清晰 */
+      }
+
+      /* 上方A,B,C標記：放在board-container頂部，讓ABC位於棋盤上方 */
+      .column-labels {
+        top: -30px;
+        left: 30px;
+        width: 320px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        height: 30px; /* 留點高度給背景 */
+      }
+
+      .column-label {
+        text-align: center;
+        flex: 1;
+      }
+
+      /* 左側1,2,3標記：在左側給出空間 */
+      .row-labels {
+        top: 0px;
+        left: 0px;
+        width: 30px;
+        height: 320px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .row-label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100px;
+      }
+
+      /* 棋子基本樣式 */
+      .piece {
+        border-radius: 50%;
+        border: 2px solid #333;
+        box-sizing: border-box;
+        cursor: grab;
+        position: relative;
+        z-index: 10;
+      }
+
+      .piece:active {
+        cursor: grabbing;
+      }
+
+      /* 大中小棋子大小 */
+      .size-small {
+        width: 30px;
+        height: 30px;
+      }
+      .size-medium {
+        width: 50px;
+        height: 50px;
+      }
+      .size-large {
+        width: 70px;
+        height: 70px;
+      }
+
+      /* 玩家顏色 */
+      .player-blue {
+        background: #4a90e2;
+      }
+
+      .player-orange {
+        background: #f5a623;
+      }
+
+      /* 棋子池 */
+      .piece-pool {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 20px auto;
+      }
+
+      .piece-pool .piece {
+        margin: 5px;
+      }
+
+      /* 拖曳中的棋子圖層 */
+      .drag-layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        pointer-events: none;
+        width: 100%;
+        height: 100%;
+        z-index: 10; /* 在棋子上面，但低於標記層 */
+      }
+
+      /* 通知訊息區 */
+      .notification {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 5px;
+        display: none;
+        z-index: 9999;
+        font-size: 16px;
+      }
+
+      /* 右側面板 */
+      .right-panel {
+        flex: 0 0 auto;
+        width: 300px;
+        background: #fff;
+        border-left: 1px solid #ccc;
+        padding: 10px;
+        box-sizing: border-box;
+      }
+
+      .right-panel h2 {
+        margin-top: 0;
+        font-size: 18px;
+      }
+
+      .move-list {
+        list-style: none;
+        padding: 0;
+        max-height: 500px;
+        overflow-y: auto;
+        border: 1px solid #ccc;
+        margin: 10px 0;
+      }
+
+      .move-list li {
+        padding: 5px;
+        border-bottom: 1px solid #ccc;
+        font-size: 14px;
+      }
+
+      .controls {
+        text-align: center;
+      }
+
+      .controls button {
+        margin: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="left-panel">
+      <h1>奇雞連連 (Gobblet Gobblers)</h1>
+      <div class="game-container">
+        <div class="status">
+          <div>目前玩家：<span id="currentPlayer"></span></div>
+          <button id="restartBtn">重新開始</button>
+        </div>
+        <div class="board-container">
+          <!-- 上方標記 A B C -->
+          <div class="column-labels">
+            <div class="column-label">A</div>
+            <div class="column-label">B</div>
+            <div class="column-label">C</div>
+          </div>
+          <!-- 左側標記 1 2 3 -->
+          <div class="row-labels">
+            <div class="row-label">1</div>
+            <div class="row-label">2</div>
+            <div class="row-label">3</div>
+          </div>
+
+          <div class="board" id="board">
+            <div class="cell" data-row="0" data-col="0"></div>
+            <div class="cell" data-row="0" data-col="1"></div>
+            <div class="cell" data-row="0" data-col="2"></div>
+            <div class="cell" data-row="1" data-col="0"></div>
+            <div class="cell" data-row="1" data-col="1"></div>
+            <div class="cell" data-row="1" data-col="2"></div>
+            <div class="cell" data-row="2" data-col="0"></div>
+            <div class="cell" data-row="2" data-col="1"></div>
+            <div class="cell" data-row="2" data-col="2"></div>
+          </div>
+        </div>
+        <h3>玩家棋子池</h3>
+        <div class="piece-pool" id="bluePool"></div>
+        <div class="piece-pool" id="orangePool"></div>
+      </div>
+    </div>
+    <div class="right-panel">
+      <h2>歷史紀錄</h2>
+      <ul class="move-list" id="moveList"></ul>
+      <div class="controls">
+        <button id="undoBtn">悔棋</button>
+      </div>
+    </div>
+
+    <div class="drag-layer" id="dragLayer"></div>
+    <div class="notification" id="notification"></div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+      // 內文與程式碼邏輯與前版相同，只是針對CSS排版微調
+      $(document).ready(function () {
+        var currentPlayer = "blue";
+        updateCurrentPlayerDisplay();
+
+        var boardState = [
+          [[], [], []],
+          [[], [], []],
+          [[], [], []],
+        ];
+
+        var $draggingPiece = null;
+        var originalParent = null;
+        var offsetX, offsetY;
+        var fromBoardCell = false;
+        var fromRow = null;
+        var fromCol = null;
+        var gameEnded = false;
+
+        var moveHistory = [];
+
+        resetPools();
+
+        $(document).on("mousedown touchstart", ".piece", function (e) {
+          if (gameEnded) return;
+          if ($(this).data("player") !== currentPlayer) return;
+
+          $draggingPiece = $(this);
+          originalParent = $draggingPiece.parent();
+
+          var pageX = e.pageX;
+          var pageY = e.pageY;
+          if (e.originalEvent.touches && e.originalEvent.touches.length > 0) {
+            pageX = e.originalEvent.touches[0].pageX;
+            pageY = e.originalEvent.touches[0].pageY;
+          }
+
+          var offset = $draggingPiece.offset();
+          offsetX = offset.left - pageX;
+          offsetY = offset.top - pageY;
+
+          if (originalParent.hasClass("cell")) {
+            fromBoardCell = true;
+            fromRow = originalParent.data("row");
+            fromCol = originalParent.data("col");
+            var stack = boardState[fromRow][fromCol];
+            stack.pop();
+            refreshCell(fromRow, fromCol);
+
+            if (checkWinCondition()) {
+              gameEnded = true;
+              $draggingPiece = null;
+              return;
+            }
+          } else {
+            fromBoardCell = false;
+            fromRow = null;
+            fromCol = null;
+          }
+
+          $("#dragLayer").append($draggingPiece);
+          $draggingPiece.css({ position: "absolute" });
+          movePiece($draggingPiece, pageX, pageY);
+
+          e.preventDefault();
+        });
+
+        $(document).on("mousemove touchmove", function (e) {
+          if ($draggingPiece && !gameEnded) {
+            var pageX = e.pageX;
+            var pageY = e.pageY;
+            if (e.originalEvent.touches && e.originalEvent.touches.length > 0) {
+              pageX = e.originalEvent.touches[0].pageX;
+              pageY = e.originalEvent.touches[0].pageY;
+            }
+            movePiece($draggingPiece, pageX, pageY);
+          }
+        });
+
+        $(document).on("mouseup touchend", function (e) {
+          if (!$draggingPiece) return;
+          if (gameEnded) {
+            revertPiece();
+            $draggingPiece = null;
+            return;
+          }
+
+          var pageX = e.pageX;
+          var pageY = e.pageY;
+          if (
+            e.originalEvent.changedTouches &&
+            e.originalEvent.changedTouches.length > 0
+          ) {
+            pageX = e.originalEvent.changedTouches[0].pageX;
+            pageY = e.originalEvent.changedTouches[0].pageY;
+          }
+
+          var droppedOnCell = findCellUnderPoint(pageX, pageY);
+
+          if (droppedOnCell) {
+            var row = $(droppedOnCell).data("row");
+            var col = $(droppedOnCell).data("col");
+
+            var sizeRank = { small: 1, medium: 2, large: 3 };
+            var placingSize = $draggingPiece.data("size");
+            var stack = boardState[row][col];
+            var canPlace = true;
+            if (stack.length > 0) {
+              var topPiece = stack[stack.length - 1];
+              if (sizeRank[placingSize] <= sizeRank[topPiece.size]) {
+                canPlace = false;
+              }
+            }
+
+            if (canPlace) {
+              stack.push({
+                player: $draggingPiece.data("player"),
+                size: placingSize,
+              });
+              refreshCell(row, col);
+
+              var moveRecord = {
+                player: $draggingPiece.data("player"),
+                pieceSize: placingSize,
+                fromType: fromBoardCell ? "board" : "pool",
+                fromRow: fromRow,
+                fromCol: fromCol,
+                toRow: row,
+                toCol: col,
+              };
+              moveHistory.push(moveRecord);
+              appendMoveRecord(moveRecord);
+
+              $draggingPiece.remove();
+              switchPlayer();
+
+              if (checkWinCondition()) {
+                gameEnded = true;
+              }
+            } else {
+              revertPiece();
+            }
+          } else {
+            revertPiece();
+          }
+
+          $draggingPiece = null;
+        });
+
+        $("#restartBtn").click(function () {
+          resetGame();
+        });
+
+        $("#undoBtn").click(function () {
+          undoLastMove();
+        });
+
+        function movePiece($piece, x, y) {
+          $piece.css({
+            left: x + offsetX,
+            top: y + offsetY,
+          });
+        }
+
+        function revertPiece() {
+          if ($draggingPiece && originalParent) {
+            originalParent.append($draggingPiece);
+            $draggingPiece.css({ position: "static", left: "", top: "" });
+
+            if (fromBoardCell && fromRow !== null && fromCol !== null) {
+              var placingSize = $draggingPiece.data("size");
+              var player = $draggingPiece.data("player");
+              boardState[fromRow][fromCol].push({
+                player: player,
+                size: placingSize,
+              });
+              refreshCell(fromRow, fromCol);
+            }
+          }
+        }
+
+        function findCellUnderPoint(x, y) {
+          var foundCell = null;
+          $(".cell").each(function () {
+            var offset = $(this).offset();
+            var w = $(this).outerWidth();
+            var h = $(this).outerHeight();
+            if (
+              x >= offset.left &&
+              x <= offset.left + w &&
+              y >= offset.top &&
+              y <= offset.top + h
+            ) {
+              foundCell = this;
+              return false;
+            }
+          });
+          return foundCell;
+        }
+
+        function switchPlayer() {
+          currentPlayer = currentPlayer === "blue" ? "orange" : "blue";
+          updateCurrentPlayerDisplay();
+        }
+
+        function updateCurrentPlayerDisplay() {
+          $("#currentPlayer").text(currentPlayer === "blue" ? "藍色" : "橘色");
+        }
+
+        function checkWinCondition() {
+          var topBoard = [];
+          for (var r = 0; r < 3; r++) {
+            topBoard[r] = [];
+            for (var c = 0; c < 3; c++) {
+              var stack = boardState[r][c];
+              if (stack.length > 0) {
+                topBoard[r][c] = stack[stack.length - 1].player;
+              } else {
+                topBoard[r][c] = null;
+              }
+            }
+          }
+
+          var lines = [
+            [
+              [0, 0],
+              [0, 1],
+              [0, 2],
+            ],
+            [
+              [1, 0],
+              [1, 1],
+              [1, 2],
+            ],
+            [
+              [2, 0],
+              [2, 1],
+              [2, 2],
+            ],
+            [
+              [0, 0],
+              [1, 0],
+              [2, 0],
+            ],
+            [
+              [0, 1],
+              [1, 1],
+              [2, 1],
+            ],
+            [
+              [0, 2],
+              [1, 2],
+              [2, 2],
+            ],
+            [
+              [0, 0],
+              [1, 1],
+              [2, 2],
+            ],
+            [
+              [0, 2],
+              [1, 1],
+              [2, 0],
+            ],
+          ];
+
+          for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var p1 = topBoard[line[0][0]][line[0][1]];
+            var p2 = topBoard[line[1][0]][line[1][1]];
+            var p3 = topBoard[line[2][0]][line[2][1]];
+
+            if (p1 && p1 === p2 && p2 === p3) {
+              var winner = p1 === "blue" ? "藍色" : "橘色";
+              showNotification("玩家 " + winner + " 獲勝！");
+              return true;
+            }
+          }
+          return false;
+        }
+
+        function resetPools() {
+          $("#bluePool")
+            .empty()
+            .append(
+              $(
+                '<div class="piece player-blue size-large" data-size="large" data-player="blue"></div>'
+              ),
+              $(
+                '<div class="piece player-blue size-large" data-size="large" data-player="blue"></div>'
+              ),
+              $(
+                '<div class="piece player-blue size-medium" data-size="medium" data-player="blue"></div>'
+              ),
+              $(
+                '<div class="piece player-blue size-medium" data-size="medium" data-player="blue"></div>'
+              ),
+              $(
+                '<div class="piece player-blue size-small" data-size="small" data-player="blue"></div>'
+              ),
+              $(
+                '<div class="piece player-blue size-small" data-size="small" data-player="blue"></div>'
+              )
+            );
+
+          $("#orangePool")
+            .empty()
+            .append(
+              $(
+                '<div class="piece player-orange size-large" data-size="large" data-player="orange"></div>'
+              ),
+              $(
+                '<div class="piece player-orange size-large" data-size="large" data-player="orange"></div>'
+              ),
+              $(
+                '<div class="piece player-orange size-medium" data-size="medium" data-player="orange"></div>'
+              ),
+              $(
+                '<div class="piece player-orange size-medium" data-size="medium" data-player="orange"></div>'
+              ),
+              $(
+                '<div class="piece player-orange size-small" data-size="small" data-player="orange"></div>'
+              ),
+              $(
+                '<div class="piece player-orange size-small" data-size="small" data-player="orange"></div>'
+              )
+            );
+        }
+
+        function resetGame() {
+          boardState = [
+            [[], [], []],
+            [[], [], []],
+            [[], [], []],
+          ];
+          $(".cell").empty();
+          resetPools();
+          currentPlayer = "blue";
+          updateCurrentPlayerDisplay();
+          hideNotification();
+          gameEnded = false;
+          moveHistory = [];
+          $("#moveList").empty();
+        }
+
+        function refreshCell(row, col) {
+          var stack = boardState[row][col];
+          var $cell = $(
+            '.cell[data-row="' + row + '"][data-col="' + col + '"]'
+          );
+          $cell.empty();
+          if (stack.length > 0) {
+            var topPiece = stack[stack.length - 1];
+            var $newPiece = $('<div class="piece"></div>')
+              .addClass("player-" + topPiece.player)
+              .addClass("size-" + topPiece.size)
+              .attr("data-size", topPiece.size)
+              .attr("data-player", topPiece.player);
+            $cell.append($newPiece);
+          }
+          console.log("boardState", boardState);
+        }
+
+        function showNotification(message) {
+          var $note = $("#notification");
+          $note.text(message).fadeIn(200);
+        }
+
+        function hideNotification() {
+          var $note = $("#notification");
+          $note.fadeOut(200);
+        }
+
+        function appendMoveRecord(move) {
+          var playerName = move.player === "blue" ? "藍色" : "橘色";
+          var pieceName =
+            move.pieceSize === "large"
+              ? "大棋"
+              : move.pieceSize === "medium"
+              ? "中棋"
+              : "小棋";
+          var fromText = "";
+          if (move.fromType === "board") {
+            fromText = coordToLabel(move.fromRow, move.fromCol);
+          } else {
+            fromText = move.player === "blue" ? "藍方棋池" : "橘方棋池";
+          }
+          var toText = coordToLabel(move.toRow, move.toCol);
+
+          var text =
+            playerName +
+            "玩家將" +
+            pieceName +
+            "從" +
+            fromText +
+            "移動到" +
+            toText;
+          var $li = $("<li></li>").text(text);
+          $("#moveList").append($li);
+        }
+
+        function undoLastMove() {
+          if (moveHistory.length === 0) return;
+          var lastMove = moveHistory.pop();
+          var stack = boardState[lastMove.toRow][lastMove.toCol];
+          stack.pop();
+          refreshCell(lastMove.toRow, lastMove.toCol);
+
+          if (lastMove.fromType === "board") {
+            boardState[lastMove.fromRow][lastMove.fromCol].push({
+              player: lastMove.player,
+              size: lastMove.pieceSize,
+            });
+            refreshCell(lastMove.fromRow, lastMove.fromCol);
+          } else {
+            var poolId =
+              lastMove.player === "blue" ? "#bluePool" : "#orangePool";
+            var $piece = $('<div class="piece"></div>')
+              .addClass("player-" + lastMove.player)
+              .addClass("size-" + lastMove.pieceSize)
+              .attr("data-size", lastMove.pieceSize)
+              .attr("data-player", lastMove.player);
+            $(poolId).append($piece);
+          }
+
+          $("#moveList li:last-child").remove();
+
+          currentPlayer = lastMove.player;
+          updateCurrentPlayerDisplay();
+
+          if (!checkWinCondition()) {
+            gameEnded = false;
+            hideNotification();
+          }
+        }
+
+        function coordToLabel(r, c) {
+          var cols = ["A", "B", "C"];
+          var rows = ["1", "2", "3"];
+          return cols[c] + rows[r];
+        }
+      });
+    </script>
+  </body>
+</html>
