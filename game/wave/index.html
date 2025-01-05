@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>心靈共感遊戲</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: Arial, sans-serif;
+      }
+
+      .container {
+        text-align: center;
+        margin: 50px auto;
+        max-width: 500px;
+        padding: 20px;
+        border: 2px solid #ccc;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      h1 {
+        margin-bottom: 20px;
+      }
+
+      .question-box {
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+
+      .number-box {
+        font-size: 48px;
+        font-weight: bold;
+        color: #007bff;
+        margin: 20px 0;
+      }
+
+      button {
+        background-color: #007bff;
+        color: white;
+        padding: 10px 20px;
+        margin: 5px;
+        border: none;
+        cursor: pointer;
+        border-radius: 5px;
+      }
+
+      .slider-container {
+        margin: 20px 0;
+      }
+
+      input[type="range"] {
+        width: 80%;
+      }
+
+      input[type="number"] {
+        width: 60px;
+        text-align: center;
+        font-size: 16px;
+      }
+
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+      }
+
+      .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: center;
+        max-width: 400px;
+        width: 80%;
+        margin: 100px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>心靈共感遊戲</h1>
+      <div class="question-box">
+        <p id="question">請按「下一題」開始</p>
+      </div>
+      <div class="number-box">
+        <span id="random-number">-</span>
+      </div>
+      <button id="next-btn">下一題</button>
+      <button id="custom-btn">遊戲自定義</button>
+      <button id="hide-number-btn">隱藏數字</button>
+    </div>
+
+    <!-- 滑動條功能 -->
+    <div class="slider-container">
+      <label for="slider">請輸入你的答案 (0-100)：</label>
+      <input type="range" id="slider" min="0" max="100" value="50" />
+      <input type="number" id="slider-number" min="0" max="100" value="50" />
+      <button id="submit-answer-btn">送出答案</button>
+    </div>
+
+    <!-- 自定義 Modal -->
+    <div class="modal" id="custom-modal">
+      <div class="modal-content">
+        <h2>遊戲自定義</h2>
+        <p>抽取題目數量 (1~5)：</p>
+        <input type="number" id="custom-count" min="1" max="5" value="1" />
+        <p>選擇題庫：</p>
+        <select id="question-bank-select">
+          <option value="questionBank1">題庫 1</option>
+          <option value="questionBank2">題庫 2</option>
+        </select>
+        <button id="confirm-btn">確認</button>
+      </div>
+    </div>
+
+    <!-- 選擇題目 Modal -->
+    <div class="modal" id="choice-modal">
+      <div class="modal-content">
+        <h2>請選擇一個題目</h2>
+        <div id="choice-container"></div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="./questions.js"></script>
+    <script>
+      // 題庫資料 (題庫 1) questionBank1
+      // 題庫資料 (題庫 2) questionBank2
+
+      let selectedCount = 1;
+      let questionBank = questionBank1;
+      let currentNumber = 0;
+      let hidden = false;
+
+      const Game = {
+        getRandomNumber: () => Math.floor(Math.random() * 101),
+        getRandomQuestions: (count) =>
+          questionBank.sort(() => Math.random() - 0.5).slice(0, count),
+      };
+
+      $(document).ready(function () {
+        // 初始化設定
+        // 初始化設定
+        const savedSettings = JSON.parse(localStorage.getItem("gameSettings"));
+        if (savedSettings) {
+          selectedCount = savedSettings.count || 1;
+          const selectedBank = savedSettings.bank || "questionBank1";
+          questionBank =
+            selectedBank === "questionBank1" ? questionBank1 : questionBank2;
+
+          // 同步設定選單的值
+          $("#custom-count").val(selectedCount);
+          $("#question-bank-select").val(selectedBank);
+        }
+
+        // 初始化題目邏輯
+        $("#next-btn").on("click", function () {
+          const questions = Game.getRandomQuestions(selectedCount);
+
+          if (selectedCount > 1) {
+            // 顯示題目選擇 Modal
+            $("#choice-container").empty();
+            questions.forEach((q) => {
+              $("<button>")
+                .text(q)
+                .on("click", function () {
+                  $("#question").text(q);
+                  currentNumber = Game.getRandomNumber();
+                  $("#random-number").text(hidden ? "?" : currentNumber);
+                  $("#choice-modal").fadeOut();
+                })
+                .appendTo("#choice-container");
+            });
+            $("#choice-modal").fadeIn();
+          } else {
+            // 單一題目直接顯示
+            $("#question").text(questions[0]);
+            currentNumber = Game.getRandomNumber();
+            $("#random-number").text(hidden ? "?" : currentNumber);
+          }
+        });
+
+        // 隱藏數字按鈕
+        $("#hide-number-btn").on("click", function () {
+          hidden = true;
+          $("#random-number").text("?");
+        });
+
+        // 滑動條與數字同步
+        $("#slider").on("input", function () {
+          $("#slider-number").val($(this).val());
+        });
+
+        $("#slider-number").on("input", function () {
+          $("#slider").val($(this).val());
+        });
+
+        // 送出答案按鈕
+        $("#submit-answer-btn").on("click", function () {
+          hidden = false;
+          $("#random-number").text(currentNumber);
+        });
+
+        // 自定義設定按鈕
+        $("#custom-btn").on("click", function () {
+          $("#custom-modal").fadeIn();
+        });
+
+        // 確認自定義設定
+        $("#confirm-btn").on("click", function () {
+          selectedCount = parseInt($("#custom-count").val(), 10);
+          const selectedBank = $("#question-bank-select").val(); // 取得選中的題庫
+          questionBank =
+            selectedBank === "questionBank1" ? questionBank1 : questionBank2;
+
+          // 儲存設定到 localStorage
+          localStorage.setItem(
+            "gameSettings",
+            JSON.stringify({ count: selectedCount, bank: selectedBank })
+          );
+
+          $("#custom-modal").fadeOut();
+        });
+
+        // 點擊背景關閉 Modal
+        $(".modal").on("click", function (e) {
+          if (e.target.className === "modal") {
+            $(this).fadeOut();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

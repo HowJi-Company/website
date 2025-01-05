@@ -1,0 +1,1540 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>種子土地遊戲 - UI與邏輯調整</title>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css"
+    />
+
+    <style>
+      .game-board {
+        display: grid;
+        grid-template-columns: repeat(4, 80px);
+        grid-template-rows: repeat(4, 80px);
+        gap: 5px;
+        margin-top: 20px;
+        position: relative;
+      }
+      .land-tile {
+        width: 80px;
+        height: 80px;
+        position: relative;
+        background-size: cover;
+        background-position: center center;
+        border: 1px solid #ccc;
+        cursor: pointer;
+      }
+      .land-tile.highlight {
+        outline: 3px solid yellow;
+      }
+
+      .seed {
+        width: 60%;
+        height: 60%;
+        position: absolute;
+        top: 20%;
+        left: 20%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+      }
+
+      .seed-stage1 {
+        background-image: url("./img/s1.webp");
+        background-size: contain;
+        background-repeat: no-repeat;
+      }
+      .seed-stage2 {
+        background-image: url("./img/s2.webp");
+        background-size: contain;
+        background-repeat: no-repeat;
+      }
+      .seed-stage3 {
+        background-image: url("./img/s3.webp");
+        background-size: contain;
+        background-repeat: no-repeat;
+      }
+      .seed-stage4 {
+        background-image: url("./img/s4.webp");
+        background-size: contain;
+        background-repeat: no-repeat;
+      }
+
+      /* 玩家顏色框線顯示擴充 */
+      .player1 .seed {
+        border: 3px solid blue;
+      }
+      .player2 .seed {
+        border: 3px solid red;
+      }
+      .player3 .seed {
+        border: 3px solid green;
+      }
+      .player4 .seed {
+        border: 3px solid purple;
+      }
+      .player5 .seed {
+        border: 3px solid orange;
+      }
+      .player6 .seed {
+        border: 3px solid brown;
+      }
+
+      .bg-good-land {
+        background-image: url("./img/l4.webp");
+      }
+      .bg-good-land2 {
+        background-image: url("./img/l5.webp");
+      }
+      .bg-good-land3 {
+        background-image: url("./img/l6.webp");
+      }
+      .bg-thorn {
+        background-image: url("./img/l3.webp");
+      }
+      .bg-shallow-stone {
+        background-image: url("./img/l2.webp");
+      }
+      .bg-bird {
+        background-image: url("./img/l1.webp");
+      }
+
+      .btn-area {
+        margin-top: 20px;
+      }
+
+      .message-log {
+        border: 1px solid #999;
+        height: 200px;
+        overflow: auto;
+        margin-top: 20px;
+        padding: 5px;
+        background: #f9f9f9;
+        font-size: 14px;
+      }
+
+      .discard-area {
+        margin-top: 20px;
+        border: 1px solid #ccc;
+        padding: 10px;
+      }
+
+      .discard-area h3 {
+        font-size: 16px;
+        margin-bottom: 10px;
+      }
+
+      .discard-pile {
+        display: inline-block;
+        vertical-align: top;
+      }
+
+      .discard-card {
+        width: 80px;
+        margin: 5px;
+        display: inline-block;
+        border: 1px solid #999;
+        text-align: center;
+        font-size: 14px;
+      }
+
+      .discard-card img {
+        width: 80px;
+        height: 80px;
+        object-fit: cover;
+      }
+
+      .phase-controls {
+        margin-top: 20px;
+      }
+
+      .phase-controls button {
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+
+      .player-management {
+        margin-top: 20px;
+      }
+
+      .player-actions .player-action-btn {
+        margin-right: 5px;
+        margin-top: 5px;
+        display: inline-block;
+        padding: 2px 5px;
+        border: 2px solid transparent;
+        color: #fff;
+        background: #333;
+      }
+
+      .player-info {
+        border: 1px solid #ccc;
+        padding: 10px;
+        margin-top: 20px;
+        position: relative;
+      }
+
+      .player-color {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        vertical-align: middle;
+        border: 2px solid #000;
+        margin-right: 5px;
+      }
+
+      /* 土地編號標示(右下角小標籤) */
+      .tile-index {
+        position: absolute;
+        bottom: 0px;
+        right: 0px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #fff;
+        font-size: 10px;
+        padding: 2px;
+      }
+    </style>
+  </head>
+  <body class="container">
+    <h1 class="mt-3">種子土地遊戲 - UI與邏輯調整</h1>
+
+    <!-- 玩家管理區 -->
+    <div class="row player-management">
+      <div class="col-12">
+        <h3>玩家管理</h3>
+        <button class="btn btn-success" id="addPlayerBtn">新增玩家</button>
+        <select id="removePlayerSelect"></select>
+        <button class="btn btn-danger" id="removePlayerBtn">刪除玩家</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-4">
+        <!-- 遊戲版面 -->
+        <div class="game-board" id="gameBoard"></div>
+      </div>
+
+      <div class="col-8">
+        <!-- 玩家資訊區 -->
+        <div class="row" id="playerInfoContainer"></div>
+      </div>
+    </div>
+
+    <!-- 回合階段控制 -->
+    <div class="row phase-controls">
+      <div class="col-12">
+        <h3>回合控制</h3>
+        <button class="btn btn-warning" id="drawEventPhaseBtn">抽事件卡</button>
+        <button class="btn btn-warning" id="applyEventBtn">執行事件</button>
+        <button class="btn btn-info" id="growthPhaseBtn">土地生長</button>
+        <button class="btn btn-success" id="harvestPhaseBtn">收成</button>
+        <button class="btn btn-secondary" id="nextRoundBtn">
+          進入下一回合
+        </button>
+        <h4>
+          回合: <span id="roundInfo">1</span>， 當前階段：<span
+            id="phaseIndicator"
+            >等待抽事件</span
+          >
+        </h4>
+      </div>
+    </div>
+    <!-- 特殊操作 -->
+    <div class="row">
+      <div class="col-12">
+        <h3>特殊操作</h3>
+        <button class="btn btn-primary" id="manualGrowthBtn">
+          生長(指定位置+1)
+        </button>
+        <button class="btn btn-danger" id="manualRemoveBtn">
+          移除(指定位置種子)
+        </button>
+        <button class="btn btn-dark" id="manualChangeBtn">
+          變化(土地型態循環)
+        </button>
+      </div>
+    </div>
+
+    <!-- 訊息記錄區 -->
+    <div class="row mt-3">
+      <div class="col-12">
+        <h3>遊戲記錄</h3>
+        <div class="message-log" id="messageLog"></div>
+      </div>
+    </div>
+
+    <!-- 棄牌區 -->
+    <div class="row mt-3">
+      <div class="col-12 discard-area">
+        <h3>棄牌堆</h3>
+        <div class="discard-pile" id="discardPile"></div>
+      </div>
+    </div>
+
+    <!-- 規則說明區 -->
+    <div class="row mt-3">
+      <div class="col-12">
+        <!-- 種子規則 -->
+        <h3>種子規則</h3>
+        <p>
+          種子有4個階段，每個階段的圖示如下：
+          <img src="./img/s1.webp" alt="種子階段1" width="60" />
+          <img src="./img/s2.webp" alt="種子階段2" width="60" />
+          <img src="./img/s3.webp" alt="種子階段3" width="60" />
+          <img src="./img/s4.webp" alt="種子階段4" width="60" />
+        </p>
+        <!-- 土地規則 -->
+        <h3>土地規則</h3>
+        <!-- 展示圖片 然後說明各項土地的情形 -->
+        <div class="row">
+          <div class="col-3">
+            <div class="land-tile bg-good-land"></div>
+            <p>好土：種子成長到4階段可收成30分 自然生長1</p>
+          </div>
+          <div class="col-3">
+            <div class="land-tile bg-thorn"></div>
+            <p>荊棘地：種子成長到4階段可收成10分 自然生長1 但無法自然生長到4</p>
+          </div>
+          <div class="col-3">
+            <div class="land-tile bg-shallow-stone"></div>
+            <p>
+              土淺石頭地：種子成長到4階段可收成10分 自然生長1 但有20%機率被移除
+            </p>
+          </div>
+          <div class="col-3">
+            <div class="land-tile bg-bird"></div>
+            <p>路旁鳥：種子成長到4階段可收成10分 不會生長</p>
+          </div>
+          <div class="col-3">
+            <div class="land-tile bg-good-land2"></div>
+            <p>優質好土：種子成長到4階段可收成60分 只能由好土升級 自然生長1</p>
+          </div>
+          <div class="col-3">
+            <div class="land-tile bg-good-land3"></div>
+            <p>
+              頂級好土：種子成長到4階段可收成100分 只能由優質好土升級 自然生長1
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 背包Modal -->
+    <div class="modal fade" id="bagModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">背包卡片</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body" id="bagModalBody">
+            <!-- 卡片列表由JS動態產生 -->
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              關閉
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const PLAYER_COLORS = [
+        "blue",
+        "red",
+        "green",
+        "purple",
+        "orange",
+        "brown",
+      ];
+
+      function getNeighbourIndexes(index, size) {
+        const neighbours = [];
+        if (index - 1 >= 0 && index % size !== 0) {
+          neighbours.push(index - 1);
+        }
+        if (index + 1 < size * size && (index + 1) % size !== 0) {
+          neighbours.push(index + 1);
+        }
+        if (index - size >= 0) {
+          neighbours.push(index - size);
+        }
+        if (index + size < size * size) {
+          neighbours.push(index + size);
+        }
+        return neighbours;
+      }
+
+      class BaseLand {
+        constructor(typeName, className, maxStage = 4) {
+          this.typeName = typeName;
+          this.className = className;
+          this.maxStage = maxStage;
+        }
+        growSeed(tile, game) {}
+        harvestSeedIfReady(tile, game) {}
+        harvest(tile, game, score) {
+          const player = game.players.find((p) => p.id === tile.seed.playerId);
+          player.score += score;
+          game.logEvent(
+            `第${game.board.tiles.indexOf(tile)}格：玩家${player.id}的種子在${
+              this.typeName
+            }收成，獲得${score}分`
+          );
+          tile.seed = null;
+        }
+      }
+
+      class GoodLand extends BaseLand {
+        constructor() {
+          super("好土", "bg-good-land");
+        }
+        growSeed(tile, game) {
+          if (!tile.seed) return;
+          if (tile.seed.growthStage < 4) {
+            tile.seed.growthStage = Math.min(
+              tile.seed.growthStage + 1,
+              this.maxStage
+            );
+          }
+        }
+        harvestSeedIfReady(tile, game) {
+          if (tile.seed && tile.seed.growthStage === 4) {
+            this.harvest(tile, game, 30);
+          }
+        }
+      }
+      class GoodLand2 extends BaseLand {
+        constructor() {
+          super("好土2", "bg-good-land2");
+        }
+        growSeed(tile, game) {
+          if (!tile.seed) return;
+          if (tile.seed.growthStage < 4) {
+            tile.seed.growthStage = Math.min(
+              tile.seed.growthStage + 1,
+              this.maxStage
+            );
+          }
+        }
+        harvestSeedIfReady(tile, game) {
+          if (tile.seed && tile.seed.growthStage === 4) {
+            this.harvest(tile, game, 60);
+            // 變回好土
+            tile.landType = new GoodLand();
+          }
+        }
+      }
+      class GoodLand3 extends BaseLand {
+        constructor() {
+          super("好土3", "bg-good-land3");
+        }
+        growSeed(tile, game) {
+          if (!tile.seed) return;
+          if (tile.seed.growthStage < 4) {
+            tile.seed.growthStage = Math.min(
+              tile.seed.growthStage + 1,
+              this.maxStage
+            );
+          }
+        }
+        harvestSeedIfReady(tile, game) {
+          if (tile.seed && tile.seed.growthStage === 4) {
+            this.harvest(tile, game, 100);
+            // 變回好土
+            tile.landType = new GoodLand();
+          }
+        }
+      }
+
+      class ThornLand extends BaseLand {
+        constructor() {
+          super("荊棘地", "bg-thorn");
+        }
+        growSeed(tile, game) {
+          if (!tile.seed) return;
+          // bug修正：若已是4階段就不變
+          // 若小於4階段，成長+1但最高到3
+          if (tile.seed.growthStage < 4) {
+            let targetStage = tile.seed.growthStage + 1;
+            if (targetStage > 3) targetStage = 3;
+            tile.seed.growthStage = targetStage;
+          }
+        }
+        harvestSeedIfReady(tile, game) {
+          if (tile.seed && tile.seed.growthStage === 4) {
+            this.harvest(tile, game, 10);
+          }
+        }
+      }
+
+      class ShallowStoneLand extends BaseLand {
+        constructor() {
+          super("土淺石頭地", "bg-shallow-stone");
+        }
+        growSeed(tile, game) {
+          if (!tile.seed) return;
+          if (tile.seed.growthStage < 4) {
+            tile.seed.growthStage = Math.min(
+              tile.seed.growthStage + 1,
+              this.maxStage
+            );
+          }
+          if (Math.random() < 0.2 && tile.seed) {
+            game.logEvent(
+              `第${game.board.tiles.indexOf(
+                tile
+              )}格：土淺石頭地的種子在生長中被20%機率移除`
+            );
+            tile.seed = null;
+          }
+        }
+        harvestSeedIfReady(tile, game) {
+          if (tile.seed && tile.seed.growthStage === 4) {
+            this.harvest(tile, game, 10);
+          }
+        }
+      }
+
+      class BirdSideLand extends BaseLand {
+        constructor() {
+          super("路旁鳥", "bg-bird");
+        }
+        growSeed(tile, game) {
+          // 不成長
+        }
+        harvestSeedIfReady(tile, game) {
+          if (tile.seed && tile.seed.growthStage === 4) {
+            this.harvest(tile, game, 10);
+          }
+        }
+      }
+
+      class GameEvent {
+        constructor(name) {
+          this.name = name;
+        }
+        applyEvent(game) {}
+      }
+
+      class MildClimateEvent extends GameEvent {
+        constructor() {
+          super("溫和氣候:所有種子成長+1");
+        }
+        applyEvent(game) {
+          game.logEvent(`事件：溫和氣候，所有種子成長+1`);
+          game.board.tiles.forEach((tile, index) => {
+            if (tile.seed && tile.seed.growthStage < 4) {
+              tile.seed.growthStage = Math.min(tile.seed.growthStage + 1, 4);
+              game.logEvent(`第${index}格：種子成長+1`);
+            }
+          });
+        }
+      }
+
+      class BirdDamageEvent extends GameEvent {
+        constructor() {
+          super("鳥害:路旁地形上的種子全部移除");
+        }
+        applyEvent(game) {
+          game.logEvent(`事件：鳥害，魔鬼來吃光路旁地形上的種子`);
+          game.board.tiles.forEach((tile, index) => {
+            if (tile.landType instanceof BirdSideLand && tile.seed) {
+              game.logEvent(`第${index}格：種子被鳥害移除`);
+              tile.seed = null;
+            }
+          });
+        }
+      }
+
+      class DroughtEvent extends GameEvent {
+        constructor() {
+          super(
+            "乾旱：大試煉來臨，好土50%變為土淺石頭地，土淺石頭地上的種子移除"
+          );
+        }
+        applyEvent(game) {
+          game.logEvent(`事件：乾旱`);
+          game.board.tiles.forEach((tile, index) => {
+            if (tile.landType instanceof ShallowStoneLand && tile.seed) {
+              game.logEvent(`第${index}格：乾旱使土淺石頭地上的種子移除`);
+              tile.seed = null;
+            }
+          });
+          game.board.tiles.forEach((tile, index) => {
+            if (tile.landType instanceof GoodLand) {
+              if (Math.random() < 0.5) {
+                game.logEvent(`第${index}格：好土變為土淺石頭地`);
+                tile.landType = new ShallowStoneLand();
+              }
+            }
+          });
+        }
+      }
+
+      class HeavyRainEvent extends GameEvent {
+        constructor() {
+          super(
+            "大雨：好土上的種子成長+1, 但植物生長茂盛，所有地形10%機率變為荊棘地"
+          );
+        }
+        applyEvent(game) {
+          game.logEvent(`事件：大雨，好土上的種子成長+1`);
+          game.board.tiles.forEach((tile, index) => {
+            if (
+              tile.landType instanceof GoodLand &&
+              tile.seed &&
+              tile.seed.growthStage < 4
+            ) {
+              tile.seed.growthStage = Math.min(tile.seed.growthStage + 1, 4);
+              game.logEvent(`第${index}格好土上的種子成長+1`);
+            }
+            // 10%機率變為荊棘地
+            if (Math.random() < 0.1) {
+              game.logEvent(`第${index}格：大雨使地形變為荊棘地`);
+              tile.landType = new ThornLand();
+            }
+          });
+        }
+      }
+      // 人為開墾事件
+      class HumanCultivationEvent extends GameEvent {
+        constructor() {
+          super(
+            "人為開墾：人類開墾，大興土木，建造道路,所有土地10%機率變為道路地"
+          );
+        }
+        applyEvent(game) {
+          game.logEvent(`事件：人為開墾`);
+          game.board.tiles.forEach((tile, index) => {
+            // 10%機率變為道路地
+            if (Math.random() < 0.1) {
+              game.logEvent(`第${index}格：人為開墾使地形變為道路地`);
+              tile.landType = new BirdSideLand();
+            }
+          });
+        }
+      }
+
+      class Player {
+        constructor(id, color) {
+          this.id = id;
+          this.color = color;
+          this.bag = [];
+          this.score = 0;
+        }
+        addCard(card) {
+          this.bag.push(card);
+        }
+      }
+
+      class Tile {
+        constructor(landType) {
+          this.landType = landType;
+          this.seed = null;
+        }
+      }
+
+      class Board {
+        constructor() {
+          this.tiles = [];
+        }
+        initBoard(size = 4, landTypes = [], init_max = 4) {
+          this.tiles = [];
+          // 自動調整 init_max，不得超過 landTypes.length
+          init_max = Math.min(init_max, landTypes.length);
+
+          for (let i = 0; i < size * size; i++) {
+            const land = landTypes[Math.floor(Math.random() * init_max)];
+            this.tiles.push(new Tile(land));
+          }
+        }
+      }
+
+      // 土地型態循環用陣列
+      const LAND_CYCLE = [
+        "bird",
+        "shallowStone",
+        "thorn",
+        "good",
+        "good2",
+        "good3",
+      ];
+      function getLandInstanceByType(typeName) {
+        switch (typeName) {
+          case "good":
+            return new GoodLand();
+          case "thorn":
+            return new ThornLand();
+          case "shallowStone":
+            return new ShallowStoneLand();
+          case "bird":
+            return new BirdSideLand();
+          case "good2":
+            return new GoodLand2();
+          case "good3":
+            return new GoodLand3();
+        }
+      }
+
+      class Game {
+        constructor() {
+          this.players = [];
+          // 預設2位玩家
+          this.players.push(new Player(1, PLAYER_COLORS[0]));
+          this.players.push(new Player(2, PLAYER_COLORS[1]));
+
+          this.currentRound = 1;
+          this.currentPlantingPlayerId = null;
+          this.cardsUsed = [];
+          this.cardIdCounter = 1;
+
+          //
+          this.manualGrowthMode = false;
+          this.manualRemoveMode = false;
+          this.manualChangeMode = false;
+
+          this.landTypes = [
+            new GoodLand(),
+            new ThornLand(),
+            new ShallowStoneLand(),
+            new BirdSideLand(),
+            new GoodLand2(),
+            new GoodLand3(),
+          ];
+
+          this.SEED_STAGES = {
+            1: "seed-stage1",
+            2: "seed-stage2",
+            3: "seed-stage3",
+            4: "seed-stage4",
+          };
+
+          this.board = new Board();
+          this.board.initBoard(4, this.landTypes);
+
+          this.CARD_POOL = [
+            () =>
+              this.createCard(
+                "禱告扶持卡",
+                "./img/c1.png",
+                "透過禱告，移除障礙(石頭)，幫助他人成為好土 (石頭地 -> 好土) ---- 說出一項不重複的禱告內容",
+                (player, boardData, tileIndex, game) => {
+                  const tile = boardData[tileIndex];
+                  if (tile.landType instanceof ShallowStoneLand) {
+                    tile.landType = new GoodLand();
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用禱告扶持卡，變為好土`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (neighbourTile.landType instanceof ShallowStoneLand) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.landType = new GoodLand();
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用禱告扶持卡，變為好土`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用禱告扶持卡無效（非石頭地）`
+                    );
+                  }
+                }
+              ),
+            () =>
+              this.createCard(
+                "參加聚會卡",
+                "./img/c3.png",
+                "聽道理，改變自己，脫離世界的迷惑(荊棘)，更加專心靠主(變好土) ---- 會前唱詩一首",
+                (player, boardData, tileIndex, game) => {
+                  const tile = boardData[tileIndex];
+                  if (tile.landType instanceof ThornLand) {
+                    tile.landType = new GoodLand();
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用參加聚會卡，變為好土`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (neighbourTile.landType instanceof ThornLand) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.landType = new GoodLand();
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用參加聚會卡，變為好土`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用參加聚會卡無效（非荊棘地）`
+                    );
+                  }
+                }
+              ),
+            () =>
+              this.createCard(
+                "愛心關懷卡",
+                "./img/c5.png",
+                "主動關心與幫助，改變他人心田，讓他們願意接受神的道(鳥旁地 -> 隨機地) ---- 練習關懷同靈",
+                (player, boardData, tileIndex, game) => {
+                  const tile = boardData[tileIndex];
+                  if (tile.landType instanceof BirdSideLand) {
+                    const lands = [
+                      new ShallowStoneLand(),
+                      new ThornLand(),
+                      new GoodLand(),
+                    ];
+                    const chosen =
+                      lands[Math.floor(Math.random() * lands.length)];
+                    tile.landType = chosen;
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用愛心關懷卡，變為${chosen.typeName}`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (neighbourTile.landType instanceof BirdSideLand) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.landType = chosen;
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用愛心關懷卡，變為${chosen.typeName}`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用愛心關懷卡無效（非鳥旁地）`
+                    );
+                  }
+                }
+              ),
+            () =>
+              this.createCard(
+                "靈修卡",
+                "./img/c8.png",
+                "透過禱告與靈修，幫助種子快速成長(種子成長+1) ---- 說出一項不重複的靈修方式 或 聖工",
+                (player, boardData, tileIndex, game) => {
+                  const tile = boardData[tileIndex];
+                  if (tile.seed && tile.seed.growthStage < 4) {
+                    tile.seed.growthStage = Math.min(
+                      tile.seed.growthStage + 1,
+                      4
+                    );
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用靈修卡，種子成長+1`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (
+                        neighbourTile.seed &&
+                        neighbourTile.seed.growthStage < 4
+                      ) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.seed.growthStage = Math.min(
+                            neighbourTile.seed.growthStage + 1,
+                            4
+                          );
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用靈修卡，種子成長+1`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用靈修卡無效（無種子或已滿階）`
+                    );
+                  }
+                }
+              ),
+            () =>
+              this.createCard(
+                "傳福音卡",
+                "./img/c10.png",
+                "分享主耶穌的救恩，將福音的種子播種到他人心田中(播種種子)  ---- 練習傳福音",
+                (player, boardData, tileIndex, game) => {
+                  const tile = boardData[tileIndex];
+                  if (!tile.seed) {
+                    tile.seed = { playerId: player.id, growthStage: 1 };
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用傳福音卡，播下福音種子`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (!neighbourTile.seed) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.seed = {
+                            playerId: player.id,
+                            growthStage: 1,
+                          };
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用傳福音卡，播下福音種子`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用傳福音卡無效（非空地）`
+                    );
+                  }
+                }
+              ),
+            () =>
+              this.createCard(
+                "靈命輔導卡",
+                "./img/c11.png",
+                "透過輔導與引導，幫助信徒轉換到更適合成長的環境(移植種子) ---- 你可以如何幫助別人",
+                (player, boardData, tileIndex, game) => {
+                  if (!game.currentCardMultiStep) {
+                    const tile = boardData[tileIndex];
+                    if (tile.seed && tile.seed.playerId === player.id) {
+                      game.logEvent(
+                        `玩家${player.id}已選擇第${tileIndex}格的種子作為移植來源`
+                      );
+                      game.currentCardMultiStep = { sourceTile: tileIndex };
+                    } else {
+                      game.logEvent(
+                        `玩家${player.id}對第${tileIndex}格使用靈命輔導卡無效（無自己種子）`
+                      );
+                    }
+                  } else {
+                    const sourceIndex = game.currentCardMultiStep.sourceTile;
+                    const sourceTile = boardData[sourceIndex];
+                    const destTile = boardData[tileIndex];
+                    if (!destTile.seed) {
+                      destTile.seed = sourceTile.seed;
+                      sourceTile.seed = null;
+                      game.logEvent(
+                        `玩家${player.id}將第${sourceIndex}格的種子移植到第${tileIndex}格`
+                      );
+                      game.currentCardMultiStep = null;
+                    } else {
+                      game.logEvent(
+                        `玩家${player.id}對第${tileIndex}格使用靈命輔導卡無效（非空地）`
+                      );
+                    }
+                  }
+                }
+              ),
+            () =>
+              this.createCard(
+                //超級肥沃土壤卡 可以把好土升級
+                "忍耐到底卡",
+                "./img/c2.png",
+                "忍耐到底,必然得救(升級好土) ---- 做個小見證",
+                (player, boardData, tileIndex, game) => {
+                  const tile = boardData[tileIndex];
+                  if (tile.landType instanceof GoodLand) {
+                    tile.landType = new GoodLand2();
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用忍耐到底卡升級為優質好土`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (neighbourTile.landType instanceof GoodLand) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.landType = new GoodLand2();
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用忍耐到底卡，升級為優質好土`
+                          );
+                        }
+                      }
+                    });
+                  } else if (tile.landType instanceof GoodLand2) {
+                    tile.landType = new GoodLand3();
+                    game.logEvent(
+                      `玩家${player.id}對第${tileIndex}格使用忍耐到底卡升級為頂級好土`
+                    );
+                    // 50%機率影響周圍
+                    const neighbours = getNeighbourIndexes(tileIndex, 4);
+                    neighbours.forEach((neighbourIndex) => {
+                      const neighbourTile = boardData[neighbourIndex];
+                      if (neighbourTile.landType instanceof GoodLand2) {
+                        if (Math.random() < 0.5) {
+                          neighbourTile.landType = new GoodLand3();
+                          game.logEvent(
+                            `相鄰影響：玩家${player.id}對第${neighbourIndex}格使用忍耐到底卡，升級為頂級好土`
+                          );
+                        }
+                      }
+                    });
+                  } else {
+                    game.logEvent("使用忍耐到底卡失敗");
+                  }
+                }
+              ),
+          ];
+
+          this.eventPool = [
+            new MildClimateEvent(),
+            new BirdDamageEvent(),
+            new DroughtEvent(),
+            new HeavyRainEvent(),
+            new HumanCultivationEvent(),
+          ];
+
+          this.currentUsingCard = null;
+          this.currentUsingCardPlayer = null;
+          this.discardPile = [];
+          this.currentCardMultiStep = null;
+          this.currentPhase = "waitEventDraw";
+          this.currentEvent = null;
+        }
+
+        createCard(name, img, effectText, useEffect) {
+          const card = {
+            id: this.cardIdCounter++,
+            name,
+            img,
+            effectText,
+            useEffect: (player, boardData, tileIndex) =>
+              useEffect(player, boardData, tileIndex, this),
+          };
+          this.cardsUsed.push(card);
+          return card;
+        }
+
+        drawCard(playerId) {
+          const player = this.players.find((p) => p.id === playerId);
+          if (!player) return;
+          const cardGen =
+            this.CARD_POOL[Math.floor(Math.random() * this.CARD_POOL.length)];
+          const newCard = cardGen();
+          player.addCard(newCard);
+          this.logEvent(`玩家${playerId}抽到卡片：${newCard.name}`);
+          this.renderAll();
+        }
+
+        drawEvent() {
+          const evt =
+            this.eventPool[Math.floor(Math.random() * this.eventPool.length)];
+          this.currentEvent = evt;
+          this.logEvent(`本回合事件抽到: ${evt.name}`);
+          $("#currentEvent").text("當前事件: " + evt.name);
+        }
+
+        applyEvent() {
+          if (this.currentEvent) {
+            this.currentEvent.applyEvent(this);
+            this.currentEvent = null;
+            $("#currentEvent").text("當前事件: 無");
+            this.renderAll(); // 事件後更新畫面
+          }
+        }
+
+        startPlanting(playerId) {
+          this.currentPlantingPlayerId = playerId;
+          this.logEvent(`玩家${playerId}開始選擇土地進行播種`);
+          this.renderBoard();
+        }
+
+        plantSeed(playerId, tileIndex) {
+          const tile = this.board.tiles[tileIndex];
+          if (!tile.seed) {
+            tile.seed = { playerId: playerId, growthStage: 1 };
+            this.logEvent(`玩家${playerId}在第${tileIndex}格播種`);
+            this.currentPlantingPlayerId = null;
+            this.renderAll();
+          }
+        }
+
+        growthPhase() {
+          this.logEvent(`生長階段開始：依據土地類型讓種子生長`);
+          this.board.tiles.forEach((tile, index) => {
+            tile.landType.growSeed(tile, this);
+          });
+          this.renderAll();
+        }
+
+        harvestPhase() {
+          this.logEvent(`收成階段開始：檢查最大型態的種子並收成`);
+          this.board.tiles.forEach((tile, index) => {
+            tile.landType.harvestSeedIfReady(tile, this);
+          });
+          this.renderAll();
+        }
+
+        nextRound() {
+          this.currentRound++;
+          $("#roundInfo").text(this.currentRound);
+          this.logEvent(`進入第${this.currentRound}回合`);
+          this.currentPhase = "waitEventDraw";
+          this.updatePhaseIndicator();
+          this.renderAll();
+        }
+
+        // 開始使用卡片的流程被修改，不再立即選擇土地。
+        // 現在透過背包Modal來決定使用哪張卡片
+        startUsingCardFromModal(playerId, cardId) {
+          const player = this.players.find((p) => p.id === playerId);
+          if (!player) return;
+          const card = player.bag.find((c) => c.id === cardId);
+          if (!card) return;
+
+          this.currentUsingCard = card;
+          this.currentUsingCardPlayer = player;
+          this.currentCardMultiStep = null;
+          this.logEvent(`玩家${playerId}選擇使用卡片:${card.name}，請選擇地塊`);
+          // 關閉Modal
+          $("#bagModal").modal("hide");
+          // Render board highlight
+          this.renderBoard();
+        }
+
+        useCardOnTile(tileIndex) {
+          if (this.currentUsingCard && this.currentUsingCardPlayer) {
+            const player = this.currentUsingCardPlayer;
+            const card = this.currentUsingCard;
+
+            card.useEffect(player, this.board.tiles, tileIndex);
+
+            if (
+              card.name !== "移植卡" ||
+              (card.name === "移植卡" && this.currentCardMultiStep === null)
+            ) {
+              player.bag = player.bag.filter((c) => c.id !== card.id);
+              this.discardPile.push(card);
+              this.logEvent(
+                `玩家${player.id}的卡片${card.name}已使用完畢並棄置`
+              );
+              this.currentUsingCard = null;
+              this.currentUsingCardPlayer = null;
+            }
+            this.renderAll();
+          }
+        }
+
+        logEvent(msg) {
+          const $log = $("#messageLog");
+          const time = new Date().toLocaleTimeString();
+          const $entry = $("<div>").text(`[${time}] ${msg}`);
+          $log.prepend($entry);
+        }
+
+        renderDiscardPile() {
+          const $pile = $("#discardPile");
+          $pile.empty();
+          this.discardPile.forEach((card) => {
+            const $cardDiv = $("<div>").addClass("discard-card");
+            const $img = $("<img>").attr("src", card.img);
+            const $name = $("<div>").text(card.name);
+            const $effect = $("<div>")
+              .addClass("card-effect")
+              .text(card.effectText);
+            $cardDiv.append($img).append($name).append($effect);
+            $pile.append($cardDiv);
+          });
+        }
+
+        renderBoard() {
+          const $board = $("#gameBoard");
+          $board.empty();
+
+          this.board.tiles.forEach((tile, index) => {
+            const $tile = $("<div>")
+              .addClass("land-tile")
+              .addClass(tile.landType.className)
+              .attr("data-index", index);
+
+            // 顯示土地編號
+            const $indexLabel = $("<div>").addClass("tile-index").text(index);
+            $tile.append($indexLabel);
+
+            if (tile.seed) {
+              const stageClass = this.SEED_STAGES[tile.seed.growthStage];
+              const $seed = $("<div>").addClass("seed").addClass(stageClass);
+              $tile.addClass("player" + tile.seed.playerId);
+              $tile.append($seed);
+            }
+
+            if (this.currentPlantingPlayerId !== null && !tile.seed) {
+              $tile.addClass("highlight");
+            }
+
+            if (this.currentUsingCard && this.currentUsingCardPlayer) {
+              $tile.addClass("highlight");
+            }
+
+            $board.append($tile);
+          });
+        }
+
+        renderPlayers() {
+          const $container = $("#playerInfoContainer");
+          $container.empty();
+
+          const $removeSelect = $("#removePlayerSelect");
+          $removeSelect.empty();
+          this.players.forEach((p) => {
+            $removeSelect.append(
+              `<option value="${p.id}">玩家${p.id}</option>`
+            );
+          });
+
+          this.players.forEach((p) => {
+            const $info = $("<div>").addClass("col-4 player-info");
+            const borderColor = p.color;
+            $info.css("border-color", borderColor);
+
+            const $title = $("<div>");
+            const $colorBox = $("<div>")
+              .addClass("player-color")
+              .css("background", p.color);
+            $title.append($colorBox).append(`玩家${p.id} 分數: `);
+            const $scoreSpan = $("<span>")
+              .addClass("player-score")
+              .attr("data-player", p.id)
+              .text(p.score);
+            $title.append($scoreSpan);
+            $info.append($title);
+
+            // 玩家動作按鈕區
+            const $actions = $("<div>").addClass("player-actions");
+
+            // 顯示卡片數量與背包按鈕
+            const cardCount = p.bag.length;
+            const $bagInfo = $("<span>").text(`卡片數量:${cardCount} `);
+            const $bagBtn = $("<button>")
+              .text("背包")
+              .addClass("player-action-btn")
+              .css({
+                "border-color": borderColor,
+                background: borderColor,
+              })
+              .click(() => {
+                this.openBagModal(p);
+              });
+
+            // 播種、抽卡按鈕和之前要求相同
+            const $drawBtn = $("<button>")
+              .text("抽卡")
+              .addClass("player-action-btn")
+              .css({
+                "border-color": borderColor,
+                background: borderColor,
+              })
+              .click(() => {
+                this.drawCard(p.id);
+              });
+
+            const $plantBtn = $("<button>")
+              .text("播種")
+              .addClass("player-action-btn")
+              .css({
+                "border-color": borderColor,
+                background: borderColor,
+              })
+              .click(() => {
+                this.startPlanting(p.id);
+              });
+
+            $actions
+              .append($bagInfo)
+              .append($bagBtn)
+              .append($drawBtn)
+              .append($plantBtn);
+            $info.append($actions);
+
+            $container.append($info);
+          });
+        }
+
+        openBagModal(player) {
+          const $body = $("#bagModalBody");
+          $body.empty();
+          if (player.bag.length === 0) {
+            $body.append("<p>沒有卡片</p>");
+          } else {
+            player.bag.forEach((card) => {
+              const $cardDiv = $("<div>").css({
+                border: "1px solid #ccc",
+                margin: "5px",
+                padding: "5px",
+              });
+              const $row = $("<div>").addClass("row");
+              const $col1 = $("<div>").addClass("col-3");
+              const $col2 = $("<div>").addClass("col-9");
+              const $img = $("<img>")
+                .attr("src", card.img)
+                .css({ width: "80px", height: "80px" });
+              $col1.append($img);
+              const $name = $("<div>").text(card.name);
+              const $effect = $("<div>").text(card.effectText);
+              const $useBtn = $("<button>")
+                .text("使用")
+                .addClass("btn btn-primary btn-sm")
+                .click(() => {
+                  this.startUsingCardFromModal(player.id, card.id);
+                });
+              $col2.append($name).append($effect).append($useBtn);
+              $cardDiv.append($row.append($col1).append($col2));
+              $body.append($cardDiv);
+            });
+          }
+          $("#bagModal").modal("show");
+        }
+
+        updatePhaseIndicator() {
+          let text = "";
+          switch (this.currentPhase) {
+            case "waitEventDraw":
+              text = "等待抽事件";
+              break;
+            case "waitEventApply":
+              text = "等待執行事件";
+              break;
+            case "waitGrowth":
+              text = "等待土地生長";
+              break;
+            case "waitHarvest":
+              text = "等待收成";
+              break;
+            case "waitNextRound":
+              text = "等待進入下一回合";
+              break;
+          }
+          $("#phaseIndicator").text(text);
+        }
+
+        renderAll() {
+          this.renderPlayers();
+          this.renderBoard();
+          this.renderDiscardPile();
+        }
+
+        addPlayer() {
+          if (this.players.length >= 6) {
+            this.logEvent("已達到6位玩家上限");
+            return;
+          }
+          const newId =
+            this.players.length > 0
+              ? Math.max(...this.players.map((pp) => pp.id)) + 1
+              : 1;
+          const color = PLAYER_COLORS[this.players.length] || "gray";
+          const newPlayer = new Player(newId, color);
+          this.players.push(newPlayer);
+          this.logEvent(`新增玩家${newId}, 顏色:${color}`);
+          this.renderAll();
+        }
+
+        removePlayer(playerId) {
+          if (this.players.length <= 1) {
+            this.logEvent("至少要保留一位玩家");
+            return;
+          }
+          const idx = this.players.findIndex((p) => p.id == playerId);
+          if (idx < 0) {
+            this.logEvent("找不到指定的玩家");
+            return;
+          }
+          this.players.splice(idx, 1);
+          this.logEvent(`刪除玩家${playerId}`);
+          this.renderAll();
+        }
+
+        initUI() {
+          this.renderAll();
+          $("#roundInfo").text(this.currentRound);
+          this.updatePhaseIndicator();
+
+          // 在initUI()中(事件綁定處)新增三個按鈕的點擊事件
+          $("#manualGrowthBtn").click(() => {
+            this.manualGrowthMode = true;
+            this.manualRemoveMode = false;
+            this.manualChangeMode = false;
+            this.logEvent("請點選要+1生長的土地");
+            this.renderBoard();
+          });
+
+          $("#manualRemoveBtn").click(() => {
+            this.manualGrowthMode = false;
+            this.manualRemoveMode = true;
+            this.manualChangeMode = false;
+            this.logEvent("請點選要移除種子的土地");
+            this.renderBoard();
+          });
+
+          $("#manualChangeBtn").click(() => {
+            this.manualGrowthMode = false;
+            this.manualRemoveMode = false;
+            this.manualChangeMode = true;
+            this.logEvent("請點選要變化的土地");
+            this.renderBoard();
+          });
+
+          $("#gameBoard").on("click", ".land-tile", (e) => {
+            const tileIndex = parseInt($(e.currentTarget).attr("data-index"));
+            if (this.currentPlantingPlayerId !== null) {
+              this.plantSeed(this.currentPlantingPlayerId, tileIndex);
+              return;
+            }
+            if (this.currentUsingCard && this.currentUsingCardPlayer) {
+              this.useCardOnTile(tileIndex);
+              return;
+            }
+            // 原有的plantSeed或useCardOnTile判斷保持不變
+            // 在後面加入手動模式判斷
+            if (this.manualGrowthMode) {
+              const tile = this.board.tiles[tileIndex];
+              if (tile.seed && tile.seed.growthStage < 4) {
+                tile.seed.growthStage++;
+                this.logEvent(`第${tileIndex}格種子成長+1`);
+              } else {
+                this.logEvent(`第${tileIndex}格無法生長(無種子或已滿階)`);
+              }
+              this.manualGrowthMode = false;
+              this.renderAll();
+              return;
+            }
+
+            if (this.manualRemoveMode) {
+              const tile = this.board.tiles[tileIndex];
+              if (tile.seed) {
+                tile.seed = null;
+                this.logEvent(`第${tileIndex}格的種子被移除`);
+              } else {
+                this.logEvent(`第${tileIndex}格無種子可移除`);
+              }
+              this.manualRemoveMode = false;
+              this.renderAll();
+              return;
+            }
+
+            if (this.manualChangeMode) {
+              const tile = this.board.tiles[tileIndex];
+              let currentType = "";
+              if (tile.landType instanceof GoodLand) currentType = "good";
+              else if (tile.landType instanceof ThornLand)
+                currentType = "thorn";
+              else if (tile.landType instanceof ShallowStoneLand)
+                currentType = "shallowStone";
+              else if (tile.landType instanceof BirdSideLand)
+                currentType = "bird";
+              else if (tile.landType instanceof GoodLand2)
+                currentType = "good2";
+              else if (tile.landType instanceof GoodLand3)
+                currentType = "good3";
+
+              const idx = LAND_CYCLE.indexOf(currentType);
+              const nextType = LAND_CYCLE[(idx + 1) % LAND_CYCLE.length];
+              tile.landType = getLandInstanceByType(nextType);
+
+              this.logEvent(
+                `第${tileIndex}格土地變化為${tile.landType.typeName}`
+              );
+              this.manualChangeMode = false;
+              this.renderAll();
+              return;
+            }
+          });
+
+          $("#drawEventPhaseBtn").click(() => {
+            if (
+              this.currentPhase === "waitEventDraw" ||
+              confirm("確定要強制抽事件?")
+            ) {
+              this.drawEvent();
+              this.currentPhase = "waitEventApply";
+              this.updatePhaseIndicator();
+            } else {
+              this.logEvent("目前階段無法抽事件");
+            }
+          });
+
+          $("#applyEventBtn").click(() => {
+            if (
+              this.currentPhase === "waitEventApply" ||
+              confirm("確定要執行事件?")
+            ) {
+              this.applyEvent();
+              this.currentPhase = "waitGrowth";
+              this.updatePhaseIndicator();
+            } else {
+              this.logEvent("目前階段無法執行事件");
+            }
+          });
+
+          $("#growthPhaseBtn").click(() => {
+            if (this.currentPhase === "waitGrowth" || confirm("確定要生長?")) {
+              this.growthPhase();
+              this.currentPhase = "waitHarvest";
+              this.updatePhaseIndicator();
+            } else {
+              this.logEvent("目前階段無法進行生長");
+            }
+          });
+
+          $("#harvestPhaseBtn").click(() => {
+            if (this.currentPhase === "waitHarvest" || confirm("確定要收成?")) {
+              this.harvestPhase();
+              this.currentPhase = "waitNextRound";
+              this.updatePhaseIndicator();
+            } else {
+              this.logEvent("目前階段無法進行收成");
+            }
+          });
+
+          $("#nextRoundBtn").click(() => {
+            if (
+              this.currentPhase === "waitNextRound" ||
+              confirm("確定進入下一回合?")
+            ) {
+              this.nextRound();
+            } else {
+              this.logEvent("目前階段無法進入下一回合");
+            }
+          });
+
+          $("#addPlayerBtn").click(() => {
+            this.addPlayer();
+          });
+
+          $("#removePlayerBtn").click(() => {
+            const pid = parseInt($("#removePlayerSelect").val(), 10);
+            this.removePlayer(pid);
+          });
+
+          this.logEvent("遊戲開始");
+        }
+      }
+
+      $(document).ready(function () {
+        const game = new Game();
+        game.initUI();
+      });
+    </script>
+  </body>
+</html>
